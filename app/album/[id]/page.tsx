@@ -5,10 +5,102 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ArrowLeft, Upload, Play, GripVertical, Trash2, Heart, Edit2, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import {
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+// SortableItemコンポーネント
+function SortableItem({ photo, index, onPreview, onDelete }: {
+  photo: any
+  index: number
+  onPreview: (index: number) => void
+  onDelete: (photoId: number) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: photo.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border-0"
+      onClick={() => onPreview(index)}
+    >
+      <div className="aspect-square relative bg-muted">
+        <img
+          src={photo.url || "/placeholder.svg"}
+          alt={photo.filename}
+          className="w-full h-full object-cover"
+        />
+
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+          <Button 
+            size="icon" 
+            variant="secondary" 
+            className="bg-card/90 hover:bg-card cursor-grab active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="w-4 h-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="secondary"
+            className="bg-card/90 hover:bg-destructive hover:text-destructive-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(photo.id)
+            }}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Order Badge */}
+        <div className="absolute top-2 left-2 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-semibold shadow-lg">
+          {index + 1}
+        </div>
+      </div>
+
+      <CardContent className="p-3">
+        <p className="text-xs text-muted-foreground truncate">{photo.filename}</p>
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function AlbumDetailPage() {
   const router = useRouter()
@@ -17,9 +109,33 @@ export default function AlbumDetailPage() {
   const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewIndex, setPreviewIndex] = useState(0)
+  const [photos, setPhotos] = useState<any[]>([])
+
+  // ドラッグ&ドロップのセンサー設定
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
   
-  // アルバムデータ
-  const albums = {
+  // アルバムデータをメモ化
+  const albums = useMemo(() => ({
+    "default-beach-album": {
+      title: "ビーチの思い出",
+      description: "美しいビーチでの楽しい時間を記録したアルバムです。",
+      photoCount: 6,
+      updatedAt: new Date().toLocaleDateString('ja-JP'),
+      basePhotos: [
+        { url: "/beach-sunset.png", filename: "beach-sunset.png" },
+        { url: "/beach-umbrella.jpg", filename: "beach-umbrella.jpg" },
+        { url: "/summer-beach-family.jpg", filename: "summer-beach-family.jpg" },
+        { url: "/sandcastle.jpg", filename: "sandcastle.jpg" },
+        { url: "/seashells.jpg", filename: "seashells.jpg" },
+        { url: "/ocean-waves.png", filename: "ocean-waves.png" },
+      ],
+      photoPrefix: "beach"
+    },
     "1": {
       title: "夏の思い出 2024",
       description: "海辺での家族旅行。美しい夕日と楽しい思い出がたくさん詰まったアルバムです。",
@@ -65,10 +181,10 @@ export default function AlbumDetailPage() {
       ],
       photoPrefix: "sakura"
     }
-  }
+  }), [])
 
-  // 動的に写真を生成する関数
-  const generatePhotos = (album: any) => {
+  // 動的に写真を生成する関数（メモ化）
+  const generatePhotos = useCallback((album: any) => {
     const photos = []
     const basePhotos = album.basePhotos || []
     const totalCount = album.photoCount
@@ -92,7 +208,7 @@ export default function AlbumDetailPage() {
     }
     
     return photos
-  }
+  }, [])
 
   // アップロードされた写真を読み込む
   useEffect(() => {
@@ -103,10 +219,37 @@ export default function AlbumDetailPage() {
   }, [albumId])
 
   const currentAlbum = albums[albumId as keyof typeof albums]
-  const basePhotos = currentAlbum ? generatePhotos(currentAlbum) : []
   
-  // アップロードされた写真とベース写真を結合
-  const photos = [...basePhotos, ...uploadedPhotos]
+  // basePhotosをメモ化して無限ループを防ぐ
+  const basePhotos = useMemo(() => {
+    return currentAlbum ? generatePhotos(currentAlbum) : []
+  }, [currentAlbum, generatePhotos])
+  
+  // 写真の状態を更新
+  useEffect(() => {
+    const allPhotos = [...basePhotos, ...uploadedPhotos]
+    setPhotos(allPhotos)
+  }, [basePhotos, uploadedPhotos])
+
+  // ドラッグ&ドロップのハンドラー
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      setPhotos((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id)
+        const newIndex = items.findIndex((item) => item.id === over.id)
+        
+        const newItems = arrayMove(items, oldIndex, newIndex)
+        
+        // アップロードされた写真のみの順序を保存
+        const uploadedOnly = newItems.filter(photo => photo.uploadedAt)
+        localStorage.setItem(`album_${albumId}_photos`, JSON.stringify(uploadedOnly))
+        
+        return newItems
+      })
+    }
+  }
 
   // プレビュー機能
   const openPreview = (index: number) => {
@@ -218,64 +361,31 @@ export default function AlbumDetailPage() {
             <p className="text-sm text-muted-foreground">ドラッグして並び替えができます</p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {photos.map((photo, index) => (
-              <Card
-                key={photo.id}
-                className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border-0"
-                onClick={() => openPreview(index)}
-              >
-                <div className="aspect-square relative bg-muted">
-                  <img
-                    src={photo.url || "/placeholder.svg"}
-                    alt={photo.filename}
-                    className="w-full h-full object-cover"
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={photos.map(photo => photo.id)} strategy={verticalListSortingStrategy}>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {photos.map((photo, index) => (
+                  <SortableItem
+                    key={photo.id}
+                    photo={photo}
+                    index={index}
+                    onPreview={openPreview}
+                    onDelete={deletePhoto}
                   />
-
-                  {/* Overlay */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
-                    <Button 
-                      size="icon" 
-                      variant="secondary" 
-                      className="bg-card/90 hover:bg-card"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        // ドラッグ機能は後で実装
-                      }}
-                    >
-                      <GripVertical className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="bg-card/90 hover:bg-destructive hover:text-destructive-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deletePhoto(photo.id)
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* Order Badge */}
-                  <div className="absolute top-2 left-2 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-semibold shadow-lg">
-                    {index + 1}
-                  </div>
-                </div>
-
-                <CardContent className="p-3">
-                  <p className="text-xs text-muted-foreground truncate">{photo.filename}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       </main>
 
       {/* Preview Modal */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 [&>button]:hidden">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle className="flex items-center justify-between">
               <span>{photos[previewIndex]?.filename || "写真プレビュー"}</span>
@@ -288,14 +398,18 @@ export default function AlbumDetailPage() {
                   size="icon"
                   onClick={() => deletePhoto(photos[previewIndex]?.id)}
                   className="text-destructive hover:text-destructive"
+                  aria-label="写真を削除"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={closePreview}>
+                <Button variant="ghost" size="icon" onClick={closePreview} aria-label="プレビューを閉じる">
                   <X className="w-4 h-4" />
                 </Button>
               </div>
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              写真のプレビュー画面です。左右の矢印ボタンで他の写真に移動できます。削除ボタンで写真を削除することも可能です。
+            </DialogDescription>
           </DialogHeader>
           
           <div className="relative p-6">
@@ -307,6 +421,7 @@ export default function AlbumDetailPage() {
                   size="icon"
                   className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
                   onClick={goToPrevious}
+                  aria-label="前の写真"
                 >
                   <ChevronLeft className="w-6 h-6" />
                 </Button>
@@ -315,6 +430,7 @@ export default function AlbumDetailPage() {
                   size="icon"
                   className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
                   onClick={goToNext}
+                  aria-label="次の写真"
                 >
                   <ChevronRight className="w-6 h-6" />
                 </Button>
