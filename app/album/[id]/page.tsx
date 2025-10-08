@@ -1,19 +1,109 @@
+'use client'
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, Upload, Play, GripVertical, Trash2, Heart, Edit2 } from "lucide-react"
+import { useRouter, useParams } from "next/navigation"
+import { useEffect, useState } from "react"
 
 export default function AlbumDetailPage() {
-  const photos = [
-    { id: 1, url: "/beach-sunset.png", filename: "beach-sunset.jpg" },
-    { id: 2, url: "/diverse-family-portrait.png", filename: "family-portrait.jpg" },
-    { id: 3, url: "/ocean-waves.png", filename: "ocean-waves.jpg" },
-    { id: 4, url: "/sandcastle.jpg", filename: "sandcastle.jpg" },
-    { id: 5, url: "/beach-umbrella.jpg", filename: "beach-umbrella.jpg" },
-    { id: 6, url: "/seashells.jpg", filename: "seashells.jpg" },
-  ]
+  const router = useRouter()
+  const params = useParams()
+  const albumId = params.id as string
+  const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
+  
+  // アルバムデータ
+  const albums = {
+    "1": {
+      title: "夏の思い出 2024",
+      description: "海辺での家族旅行。美しい夕日と楽しい思い出がたくさん詰まったアルバムです。",
+      photoCount: 24,
+      updatedAt: "2024年8月15日",
+      basePhotos: [
+        { url: "/beach-sunset.png", filename: "beach-sunset.jpg" },
+        { url: "/diverse-family-portrait.png", filename: "family-portrait.jpg" },
+        { url: "/ocean-waves.png", filename: "ocean-waves.jpg" },
+        { url: "/sandcastle.jpg", filename: "sandcastle.jpg" },
+        { url: "/beach-umbrella.jpg", filename: "beach-umbrella.jpg" },
+        { url: "/seashells.jpg", filename: "seashells.jpg" },
+      ],
+      photoPrefix: "beach"
+    },
+    "2": {
+      title: "子供の成長記録",
+      description: "1歳の誕生日パーティー。初めてのケーキに興味深々な表情が印象的でした。",
+      photoCount: 18,
+      updatedAt: "2024年7月20日",
+      basePhotos: [
+        { url: "/baby-birthday-celebration.jpg", filename: "birthday-cake.jpg" },
+        { url: "/diverse-family-portrait.png", filename: "family-photo.jpg" },
+        { url: "/placeholder.jpg", filename: "candle-blowing.jpg" },
+        { url: "/placeholder.jpg", filename: "gift-opening.jpg" },
+        { url: "/placeholder.jpg", filename: "party-decorations.jpg" },
+        { url: "/placeholder.jpg", filename: "happy-moments.jpg" },
+      ],
+      photoPrefix: "birthday"
+    },
+    "3": {
+      title: "桜の季節",
+      description: "お花見ピクニック。満開の桜の下で家族と過ごした特別な時間。",
+      photoCount: 32,
+      updatedAt: "2024年4月5日",
+      basePhotos: [
+        { url: "/cherry-blossom-picnic.png", filename: "cherry-blossoms.jpg" },
+        { url: "/placeholder.jpg", filename: "picnic-setup.jpg" },
+        { url: "/placeholder.jpg", filename: "sakura-petals.jpg" },
+        { url: "/placeholder.jpg", filename: "family-under-trees.jpg" },
+        { url: "/placeholder.jpg", filename: "spring-lunch.jpg" },
+        { url: "/placeholder.jpg", filename: "memories.jpg" },
+      ],
+      photoPrefix: "sakura"
+    }
+  }
+
+  // 動的に写真を生成する関数
+  const generatePhotos = (album: any) => {
+    const photos = []
+    const basePhotos = album.basePhotos || []
+    const totalCount = album.photoCount
+    
+    for (let i = 0; i < totalCount; i++) {
+      if (i < basePhotos.length) {
+        // 既存の写真を使用
+        photos.push({
+          id: i + 1,
+          url: basePhotos[i].url,
+          filename: basePhotos[i].filename
+        })
+      } else {
+        // プレースホルダー写真を生成
+        photos.push({
+          id: i + 1,
+          url: "/placeholder.jpg",
+          filename: `${album.photoPrefix}-photo-${i + 1}.jpg`
+        })
+      }
+    }
+    
+    return photos
+  }
+
+  // アップロードされた写真を読み込む
+  useEffect(() => {
+    const savedPhotos = localStorage.getItem(`album_${albumId}_photos`)
+    if (savedPhotos) {
+      setUploadedPhotos(JSON.parse(savedPhotos))
+    }
+  }, [albumId])
+
+  const currentAlbum = albums[albumId as keyof typeof albums]
+  const basePhotos = currentAlbum ? generatePhotos(currentAlbum) : []
+  
+  // アップロードされた写真とベース写真を結合
+  const photos = [...basePhotos, ...uploadedPhotos]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10">
@@ -21,18 +111,27 @@ export default function AlbumDetailPage() {
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                 <Heart className="w-5 h-5 text-primary fill-primary" />
               </div>
-              <h1 className="text-xl font-bold text-foreground">夏の思い出 2024</h1>
+              <h1 className="text-xl font-bold text-foreground">{currentAlbum?.title || "アルバム"}</h1>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="shadow-lg hover:scale-105 transition-transform"
+              onClick={() => router.push(`/album/${albumId}/upload`)}
+            >
+              <Upload className="w-5 h-5 mr-2" />
+              写真をアップロード
+            </Button>
             <Button size="lg" className="shadow-lg hover:scale-105 transition-transform">
               <Play className="w-5 h-5 mr-2" />
               スライドショーを作成
@@ -52,7 +151,7 @@ export default function AlbumDetailPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <Input
-                  defaultValue="夏の思い出 2024"
+                  defaultValue={currentAlbum?.title || "アルバム"}
                   className="text-2xl font-bold border-0 px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
                 <Button variant="ghost" size="icon" className="shrink-0">
@@ -60,33 +159,19 @@ export default function AlbumDetailPage() {
                 </Button>
               </div>
               <Textarea
-                defaultValue="海辺での家族旅行。美しい夕日と楽しい思い出がたくさん詰まったアルバムです。"
+                defaultValue={currentAlbum?.description || "アルバムの説明"}
                 className="resize-none border-0 px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                 rows={2}
               />
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>24枚の写真</span>
+                <span>{photos.length}枚の写真</span>
                 <span>•</span>
-                <span>最終更新: 2024年8月15日</span>
+                <span>最終更新: {currentAlbum?.updatedAt || "不明"}</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Upload Area */}
-        <Card className="mb-8 border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer">
-          <CardContent className="p-12">
-            <div className="text-center">
-              <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                <Upload className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2 text-foreground">写真をアップロード</h3>
-              <p className="text-muted-foreground mb-4">ドラッグ&ドロップまたはクリックして写真を追加</p>
-              <Button size="lg">ファイルを選択</Button>
-              <p className="text-xs text-muted-foreground mt-4">JPEG, PNG, WebP形式 • 最大10MB</p>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Photos Grid */}
         <div>

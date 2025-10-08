@@ -167,6 +167,7 @@ export default function DashboardPage() {
                 <Button
                   variant="secondary"
                   className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+                  onClick={() => router.push(`/album/${album.id}`)}
                 >
                   アルバムを開く
                 </Button>
