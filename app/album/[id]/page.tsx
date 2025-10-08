@@ -1,0 +1,141 @@
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ArrowLeft, Upload, Play, GripVertical, Trash2, Heart, Edit2 } from "lucide-react"
+
+export default function AlbumDetailPage() {
+  const photos = [
+    { id: 1, url: "/beach-sunset.png", filename: "beach-sunset.jpg" },
+    { id: 2, url: "/diverse-family-portrait.png", filename: "family-portrait.jpg" },
+    { id: 3, url: "/ocean-waves.png", filename: "ocean-waves.jpg" },
+    { id: 4, url: "/sandcastle.jpg", filename: "sandcastle.jpg" },
+    { id: 5, url: "/beach-umbrella.jpg", filename: "beach-umbrella.jpg" },
+    { id: 6, url: "/seashells.jpg", filename: "seashells.jpg" },
+  ]
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10">
+      {/* Header */}
+      <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                <Heart className="w-5 h-5 text-primary fill-primary" />
+              </div>
+              <h1 className="text-xl font-bold text-foreground">夏の思い出 2024</h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button size="lg" className="shadow-lg hover:scale-105 transition-transform">
+              <Play className="w-5 h-5 mr-2" />
+              スライドショーを作成
+            </Button>
+            <Avatar className="border-2 border-primary/20">
+              <AvatarImage src="/diverse-user-avatars.png" />
+              <AvatarFallback className="bg-primary/10 text-primary">田中</AvatarFallback>
+            </Avatar>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        {/* Album Info */}
+        <Card className="mb-8 border-0 shadow-lg">
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <Input
+                  defaultValue="夏の思い出 2024"
+                  className="text-2xl font-bold border-0 px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <Button variant="ghost" size="icon" className="shrink-0">
+                  <Edit2 className="w-4 h-4" />
+                </Button>
+              </div>
+              <Textarea
+                defaultValue="海辺での家族旅行。美しい夕日と楽しい思い出がたくさん詰まったアルバムです。"
+                className="resize-none border-0 px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                rows={2}
+              />
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>24枚の写真</span>
+                <span>•</span>
+                <span>最終更新: 2024年8月15日</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Upload Area */}
+        <Card className="mb-8 border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer">
+          <CardContent className="p-12">
+            <div className="text-center">
+              <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                <Upload className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2 text-foreground">写真をアップロード</h3>
+              <p className="text-muted-foreground mb-4">ドラッグ&ドロップまたはクリックして写真を追加</p>
+              <Button size="lg">ファイルを選択</Button>
+              <p className="text-xs text-muted-foreground mt-4">JPEG, PNG, WebP形式 • 最大10MB</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Photos Grid */}
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-foreground">写真一覧</h2>
+            <p className="text-sm text-muted-foreground">ドラッグして並び替えができます</p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {photos.map((photo, index) => (
+              <Card
+                key={photo.id}
+                className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 cursor-move border-0"
+              >
+                <div className="aspect-square relative bg-muted">
+                  <img
+                    src={photo.url || "/placeholder.svg"}
+                    alt={photo.filename}
+                    className="w-full h-full object-cover"
+                  />
+
+                  {/* Overlay */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+                    <Button size="icon" variant="secondary" className="bg-card/90 hover:bg-card">
+                      <GripVertical className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="bg-card/90 hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* Order Badge */}
+                  <div className="absolute top-2 left-2 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-semibold shadow-lg">
+                    {index + 1}
+                  </div>
+                </div>
+
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground truncate">{photo.filename}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}
