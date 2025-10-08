@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ArrowLeft, Upload, Play, GripVertical, Trash2, Heart, Edit2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ArrowLeft, Upload, Play, GripVertical, Trash2, Heart, Edit2, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 
@@ -14,6 +15,8 @@ export default function AlbumDetailPage() {
   const params = useParams()
   const albumId = params.id as string
   const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewIndex, setPreviewIndex] = useState(0)
   
   // アルバムデータ
   const albums = {
@@ -105,6 +108,41 @@ export default function AlbumDetailPage() {
   // アップロードされた写真とベース写真を結合
   const photos = [...basePhotos, ...uploadedPhotos]
 
+  // プレビュー機能
+  const openPreview = (index: number) => {
+    setPreviewIndex(index)
+    setPreviewOpen(true)
+  }
+
+  const closePreview = () => {
+    setPreviewOpen(false)
+  }
+
+  const goToPrevious = () => {
+    setPreviewIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1))
+  }
+
+  const goToNext = () => {
+    setPreviewIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0))
+  }
+
+  // 削除機能
+  const deletePhoto = (photoId: number) => {
+    const updatedPhotos = photos.filter(photo => photo.id !== photoId)
+    
+    // アップロードされた写真のみをローカルストレージに保存
+    const uploadedOnly = updatedPhotos.filter(photo => photo.uploadedAt)
+    localStorage.setItem(`album_${albumId}_photos`, JSON.stringify(uploadedOnly))
+    
+    // 状態を更新
+    setUploadedPhotos(uploadedOnly)
+    
+    // プレビューが開いている場合は閉じる
+    if (previewOpen) {
+      setPreviewOpen(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10">
       {/* Header */}
@@ -184,7 +222,8 @@ export default function AlbumDetailPage() {
             {photos.map((photo, index) => (
               <Card
                 key={photo.id}
-                className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 cursor-move border-0"
+                className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border-0"
+                onClick={() => openPreview(index)}
               >
                 <div className="aspect-square relative bg-muted">
                   <img
@@ -195,13 +234,25 @@ export default function AlbumDetailPage() {
 
                   {/* Overlay */}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
-                    <Button size="icon" variant="secondary" className="bg-card/90 hover:bg-card">
+                    <Button 
+                      size="icon" 
+                      variant="secondary" 
+                      className="bg-card/90 hover:bg-card"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // ドラッグ機能は後で実装
+                      }}
+                    >
                       <GripVertical className="w-4 h-4" />
                     </Button>
                     <Button
                       size="icon"
                       variant="secondary"
                       className="bg-card/90 hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deletePhoto(photo.id)
+                      }}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -221,6 +272,89 @@ export default function AlbumDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Preview Modal */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="flex items-center justify-between">
+              <span>{photos[previewIndex]?.filename || "写真プレビュー"}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {previewIndex + 1} / {photos.length}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => deletePhoto(photos[previewIndex]?.id)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={closePreview}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative p-6">
+            {/* Navigation Buttons */}
+            {photos.length > 1 && (
+              <>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
+                  onClick={goToPrevious}
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
+                  onClick={goToNext}
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </Button>
+              </>
+            )}
+            
+            {/* Image */}
+            <div className="flex items-center justify-center min-h-[400px]">
+              <img
+                src={photos[previewIndex]?.url || "/placeholder.svg"}
+                alt={photos[previewIndex]?.filename || "プレビュー"}
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+              />
+            </div>
+            
+            {/* Thumbnail Strip */}
+            {photos.length > 1 && (
+              <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+                {photos.map((photo, index) => (
+                  <button
+                    key={photo.id}
+                    onClick={() => setPreviewIndex(index)}
+                    className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                      index === previewIndex 
+                        ? 'border-primary' 
+                        : 'border-transparent hover:border-border'
+                    }`}
+                  >
+                    <img
+                      src={photo.url || "/placeholder.svg"}
+                      alt={photo.filename}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
