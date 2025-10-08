@@ -1,8 +1,42 @@
+'use client'
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Camera, Heart } from "lucide-react"
+import { Camera, Heart, AlertCircle } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
 
 export default function AuthPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const handleLineLogin = () => {
+    // LINE認証APIにリダイレクト
+    window.location.href = '/api/auth/line'
+  }
+
+  const handleTestLogin = () => {
+    // 仮ログインでメインページに遷移
+    router.push('/')
+  }
+
+  useEffect(() => {
+    const error = searchParams.get('error')
+    if (error) {
+      switch (error) {
+        case 'line_auth_failed':
+          setErrorMessage('LINE認証に失敗しました。もう一度お試しください。')
+          break
+        case 'server_error':
+          setErrorMessage('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。')
+          break
+        default:
+          setErrorMessage('認証エラーが発生しました。')
+      }
+    }
+  }, [searchParams])
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/30 to-accent/20 p-4">
       <Card className="w-full max-w-md shadow-2xl border-0">
@@ -17,7 +51,15 @@ export default function AuthPage() {
         </CardHeader>
 
         <CardContent className="space-y-4 pb-8">
+          {errorMessage && (
+            <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+          
           <Button
+            onClick={handleLineLogin}
             className="w-full h-14 text-lg font-semibold bg-[#06C755] hover:bg-[#05B04D] text-white shadow-lg transition-all hover:scale-[1.02]"
             size="lg"
           >
@@ -37,6 +79,7 @@ export default function AuthPage() {
           </div>
 
           <Button
+            onClick={handleTestLogin}
             variant="outline"
             className="w-full h-14 text-lg font-semibold border-2 hover:bg-secondary/50 transition-all hover:scale-[1.02] bg-transparent"
             size="lg"

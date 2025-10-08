@@ -1,9 +1,42 @@
+'use client'
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Plus, ImageIcon, Calendar, LogOut, Heart } from "lucide-react"
+import { Plus, ImageIcon, Calendar, LogOut, Heart, CheckCircle } from "lucide-react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function DashboardPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const auth = useAuth()
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+  
+  // 認証情報が利用できない場合のフォールバック
+  const user = auth?.user || null
+  const logout = auth?.logout || (() => {
+    console.warn('logout function not available')
+    router.push('/auth')
+  })
+  useEffect(() => {
+    const login = searchParams.get('login')
+    if (login === 'success') {
+      setShowSuccessMessage(true)
+      // 3秒後にメッセージを非表示にする
+      const timer = setTimeout(() => {
+        setShowSuccessMessage(false)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams])
+
+  const handleLogout = () => {
+    logout()
+    router.push('/auth')
+  }
+
   const albums = [
     {
       id: 1,
@@ -46,20 +79,42 @@ export default function DashboardPage() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
               <Avatar className="border-2 border-primary/20">
-                <AvatarImage src="/diverse-user-avatars.png" />
-                <AvatarFallback className="bg-primary/10 text-primary">田中</AvatarFallback>
+                <AvatarImage src={user?.picture_url || "/diverse-user-avatars.png"} />
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {user?.display_name ? user.display_name.charAt(0) : "ユ"}
+                </AvatarFallback>
               </Avatar>
               <div className="hidden sm:block">
-                <p className="text-sm font-medium text-foreground">田中 太郎</p>
-                <p className="text-xs text-muted-foreground">テストユーザー</p>
+                <p className="text-sm font-medium text-foreground">
+                  {user?.display_name || "テストユーザー"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {user ? "ログイン中" : "テストユーザー"}
+                </p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-muted-foreground hover:text-foreground"
+              onClick={handleLogout}
+              title="ログアウト"
+            >
               <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>
       </header>
+
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right duration-300">
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg shadow-lg">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+            <span className="font-medium">ログインに成功しました！</span>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
