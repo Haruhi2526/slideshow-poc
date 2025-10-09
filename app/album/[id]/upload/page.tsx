@@ -3,9 +3,10 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ArrowLeft, Upload, Heart, X } from "lucide-react"
+import { ArrowLeft, Upload, Heart, X, AlertTriangle } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { useState } from "react"
+import { savePhotosToStorage, loadPhotosFromStorage, checkStorageUsage, compressImage } from "@/lib/storage"
 
 export default function UploadPage() {
   const router = useRouter()
@@ -13,6 +14,8 @@ export default function UploadPage() {
   const albumId = params.id as string
   const [dragActive, setDragActive] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const [storageWarning, setStorageWarning] = useState(false)
 
   // アルバムデータ（簡略版）
   const albums = {
@@ -58,24 +61,30 @@ export default function UploadPage() {
   const handleUpload = async () => {
     if (uploadedFiles.length === 0) return
 
+    setIsUploading(true)
+    setStorageWarning(false)
+
     try {
-      // 各ファイルをアップロード
+      // ストレージ使用量をチェック
+      const storageStatus = await checkStorageUsage()
+      if (!storageStatus.available) {
+        setStorageWarning(true)
+        throw new Error('ストレージの容量が不足しています。古いデータを削除してください。')
+      }
+
+      // 各ファイルを圧縮してアップロード
       const uploadPromises = uploadedFiles.map(async (file) => {
         // 実際のアップロード処理をシミュレート
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        await new Promise(resolve => setTimeout(resolve, 500))
         
-        // ファイルをBase64に変換して保存（実際の実装ではサーバーにアップロード）
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.readAsDataURL(file)
-        })
+        // 画像を圧縮してBase64に変換
+        return await compressImage(file, 1920, 0.8)
       })
 
       const uploadedImages = await Promise.all(uploadPromises)
       
-      // ローカルストレージに保存（実際の実装ではサーバーに送信）
-      const existingPhotos = JSON.parse(localStorage.getItem(`album_${albumId}_photos`) || '[]')
+      // 既存の写真データを読み込み
+      const existingPhotos = loadPhotosFromStorage(albumId)
       const newPhotos = uploadedImages.map((imageData, index) => ({
         id: Date.now() + index,
         url: imageData,
@@ -83,14 +92,19 @@ export default function UploadPage() {
         uploadedAt: new Date().toISOString()
       }))
       
+      // 新しい写真データを追加
       const updatedPhotos = [...existingPhotos, ...newPhotos]
-      localStorage.setItem(`album_${albumId}_photos`, JSON.stringify(updatedPhotos))
+      
+      // チャンク化してストレージに保存
+      savePhotosToStorage(albumId, updatedPhotos)
       
       // アップロード完了後、アルバム詳細ページに戻る
       router.push(`/album/${albumId}`)
     } catch (error) {
       console.error('Upload failed:', error)
-      alert('アップロードに失敗しました')
+      alert(error instanceof Error ? error.message : 'アップロードに失敗しました')
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -116,10 +130,10 @@ export default function UploadPage() {
               size="lg" 
               className="shadow-lg hover:scale-105 transition-transform"
               onClick={handleUpload}
-              disabled={uploadedFiles.length === 0}
+              disabled={uploadedFiles.length === 0 || isUploading}
             >
               <Upload className="w-5 h-5 mr-2" />
-              アップロード ({uploadedFiles.length})
+              {isUploading ? 'アップロード中...' : `アップロード (${uploadedFiles.length})`}
             </Button>
             <Avatar className="border-2 border-primary/20">
               <AvatarImage src="/diverse-user-avatars.png" />
@@ -130,6 +144,23 @@ export default function UploadPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Storage Warning */}
+        {storageWarning && (
+          <Card className="mb-6 border-destructive/50 bg-destructive/10">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                <div>
+                  <h4 className="font-semibold text-destructive">ストレージ容量不足</h4>
+                  <p className="text-sm text-destructive/80">
+                    ストレージの容量が不足しています。古いアルバムのデータを削除するか、写真のサイズを小さくしてください。
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Upload Area */}
         <Card className="mb-8 border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all">
           <CardContent className="p-12">
@@ -168,7 +199,7 @@ export default function UploadPage() {
                   <span>ファイルを選択</span>
                 </Button>
               </label>
-              <p className="text-xs text-muted-foreground mt-4">JPEG, PNG, WebP形式 • 最大10MB</p>
+              <p className="text-xs text-muted-foreground mt-4">JPEG, PNG, WebP形式 • 自動圧縮 • 最大10MB</p>
             </div>
           </CardContent>
         </Card>

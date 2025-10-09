@@ -36,6 +36,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (savedToken && savedUser) {
       setToken(savedToken);
       setUser(JSON.parse(savedUser));
+    } else {
+      // テストユーザーとして設定
+      const testUser = {
+        id: 'test-user-1',
+        line_user_id: 'test-user-1',
+        display_name: 'テストユーザー',
+        picture_url: '/diverse-user-avatars.png',
+        created_at: new Date().toISOString(),
+        last_login_at: new Date().toISOString()
+      };
+      setUser(testUser);
     }
     
     setIsLoading(false);
