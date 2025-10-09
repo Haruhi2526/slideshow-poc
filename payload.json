@@ -1,0 +1,6 @@
+{
+    "iss": "https://jwt-idp.example.com",
+    "sub": "1234567890",
+    "exp": 1760068800,
+    "iat": 1759982400
+}
