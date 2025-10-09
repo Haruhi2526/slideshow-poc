@@ -19,6 +19,7 @@ interface AuthContextType {
   login: (token: string, user: User) => void;
   logout: () => void;
   checkAuth: () => Promise<void>;
+  loginWithLiff: (liffUser: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -30,26 +31,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ローカルストレージから認証情報を復元
   useEffect(() => {
-    const savedToken = localStorage.getItem('auth_token');
-    const savedUser = localStorage.getItem('auth_user');
-    
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    } else {
-      // テストユーザーとして設定
-      const testUser = {
-        id: 'test-user-1',
-        line_user_id: 'test-user-1',
-        display_name: 'テストユーザー',
-        picture_url: '/diverse-user-avatars.png',
-        created_at: new Date().toISOString(),
-        last_login_at: new Date().toISOString()
-      };
-      setUser(testUser);
-    }
-    
-    setIsLoading(false);
+    const initializeAuth = () => {
+      try {
+        const savedToken = localStorage.getItem('auth_token');
+        const savedUser = localStorage.getItem('auth_user');
+        
+        if (savedToken && savedUser) {
+          const parsedUser = JSON.parse(savedUser);
+          console.log('認証情報を復元:', parsedUser);
+          setToken(savedToken);
+          setUser(parsedUser);
+        }
+      } catch (error) {
+        console.error('認証情報の復元エラー:', error);
+        // エラーが発生した場合は認証情報をクリア
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   // 認証状態をチェック
@@ -76,28 +79,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // LIFFユーザーでログイン
+  const loginWithLiff = async (liffUser: any) => {
+    try {
+      const response = await fetch('/api/auth/liff', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user: liffUser }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        login(data.token, data.user);
+      } else {
+        throw new Error('LIFF認証に失敗しました');
+      }
+    } catch (error) {
+      console.error('LIFFログインエラー:', error);
+      throw error;
+    }
+  };
+
   // ログイン
   const login = (newToken: string, newUser: User) => {
+    console.log('ログイン処理開始:', newUser);
+    
+    // 状態を同期的に更新
     setToken(newToken);
     setUser(newUser);
-    localStorage.setItem('auth_token', newToken);
-    localStorage.setItem('auth_user', JSON.stringify(newUser));
+    
+    // ローカルストレージに保存
+    try {
+      localStorage.setItem('auth_token', newToken);
+      localStorage.setItem('auth_user', JSON.stringify(newUser));
+      console.log('ログイン処理完了 - ローカルストレージに保存済み');
+    } catch (error) {
+      console.error('ローカルストレージ保存エラー:', error);
+    }
   };
 
   // ログアウト
   const logout = () => {
+    console.log('ログアウト処理開始');
     setToken(null);
     setUser(null);
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
+    
+    try {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+    } catch (error) {
+      console.error('ローカルストレージ削除エラー:', error);
+    }
     
     // サーバーサイドのログアウトも実行
-    fetch('/api/auth/logout', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    }).catch(console.error);
+    if (token) {
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }).catch(console.error);
+    }
+    console.log('ログアウト処理完了');
   };
 
   const value: AuthContextType = {
@@ -106,7 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     login,
     logout,
-    checkAuth
+    checkAuth,
+    loginWithLiff
   };
 
   return React.createElement(

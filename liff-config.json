@@ -1,0 +1,15 @@
+{
+  "liffId": "2008258317-NyKoqlyL",
+  "endpointUrl": "https://liff.line.me/2008258317-NyKoqlyL",
+  "scope": "profile openid",
+  "botPrompt": "normal",
+  "features": {
+    "ble": false,
+    "qrCode": false,
+    "clipboard": false
+  },
+  "view": {
+    "type": "full",
+    "url": "https://slideshow-poc.vercel.app/api/auth/line/callback"
+  }
+}

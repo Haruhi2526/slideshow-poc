@@ -1,12 +1,26 @@
 {
   "version": 2,
+  "projectSettings": {
+    "framework": "nextjs",
+    "buildCommand": "pnpm run build",
+    "outputDirectory": ".next",
+    "installCommand": "pnpm install"
+  },
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
+    },
+    "app/api/auth/liff/route.ts": {
+      "maxDuration": 10
     }
   },
   "env": {
     "NODE_ENV": "production"
   },
-  "regions": ["nrt1"]
+  "regions": ["sin1"],
+  "build": {
+    "env": {
+      "NEXT_TELEMETRY_DISABLED": "1"
+    }
+  }
 }

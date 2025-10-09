@@ -5,24 +5,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Camera, Heart, AlertCircle } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function AuthPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { login, user, isLoading } = useAuth()
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [hasRedirected, setHasRedirected] = useState(false)
+
+  // 認証済みユーザーはダッシュボードにリダイレクト（一度だけ）
+  useEffect(() => {
+    if (!isLoading && user && !hasRedirected) {
+      console.log('認証済みユーザーをダッシュボードにリダイレクト:', user)
+      setHasRedirected(true)
+      router.push('/dashboard')
+    }
+  }, [user, isLoading, router, hasRedirected])
 
   const handleLineLogin = () => {
     // LINE認証APIにリダイレクト
     window.location.href = '/api/auth/line'
   }
 
-  const handleTestLogin = () => {
-    // 仮ログインでメインページに遷移
-    router.push('/')
-  }
-
   useEffect(() => {
     const error = searchParams.get('error')
+    const token = searchParams.get('token')
+    const user = searchParams.get('user')
+    
     if (error) {
       switch (error) {
         case 'line_auth_failed':
@@ -31,11 +42,56 @@ export default function AuthPage() {
         case 'server_error':
           setErrorMessage('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。')
           break
+        case 'no_code':
+          setErrorMessage('認証コードが取得できませんでした。')
+          break
+        case 'callback_failed':
+          setErrorMessage('認証処理に失敗しました。')
+          break
         default:
           setErrorMessage('認証エラーが発生しました。')
       }
     }
-  }, [searchParams])
+    
+    // LINE認証成功時の処理
+    if (token && user && !isProcessing) {
+      setIsProcessing(true)
+      try {
+        const userData = JSON.parse(user)
+        console.log('認証データを処理中:', userData)
+        login(token, userData)
+        
+        // 認証状態の更新を待ってからダッシュボードにリダイレクト
+        // setTimeoutは削除し、useEffectの認証済みユーザーリダイレクトに任せる
+        console.log('認証処理完了 - useEffectでリダイレクトを待機')
+      } catch (error) {
+        console.error('認証データの処理エラー:', error)
+        setErrorMessage('認証データの処理に失敗しました。')
+        setIsProcessing(false)
+      }
+    }
+  }, [searchParams, login, router, isProcessing])
+
+  // ローディング中または認証済みユーザーの場合は何も表示しない
+  if (isLoading || user) {
+    return null
+  }
+
+  if (isProcessing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/30 to-accent/20 p-4">
+        <Card className="w-full max-w-md shadow-2xl border-0">
+          <CardContent className="text-center py-12">
+            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <Camera className="w-8 h-8 text-primary animate-pulse" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">認証中...</h2>
+            <p className="text-muted-foreground">ダッシュボードに移動します</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/30 to-accent/20 p-4">
@@ -68,26 +124,6 @@ export default function AuthPage() {
             </svg>
             LINEでログイン
           </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">または</span>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleTestLogin}
-            variant="outline"
-            className="w-full h-14 text-lg font-semibold border-2 hover:bg-secondary/50 transition-all hover:scale-[1.02] bg-transparent"
-            size="lg"
-          >
-            🧪 仮ログイン（テスト用）
-          </Button>
-
-          <p className="text-center text-sm text-muted-foreground pt-2">開発・テスト用の仮ログイン機能です</p>
         </CardContent>
       </Card>
 
