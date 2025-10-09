@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { CreateAlbumDialog } from "@/components/CreateAlbumDialog"
 import { checkStorageUsage, checkStorageUsageSync } from "@/lib/storage"
 
+
 export default function DashboardPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -378,3 +379,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+
