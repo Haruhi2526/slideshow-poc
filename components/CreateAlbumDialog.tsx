@@ -42,21 +42,28 @@ export function CreateAlbumDialog({ onAlbumCreated }: CreateAlbumDialogProps) {
       // テストユーザーの場合は仮のユーザーIDを使用
       const userId = user?.id || 'test-user-1'
       
+      const requestBody = {
+        userId: String(userId), // ユーザーIDを文字列に変換
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        thumbnailUrl: formData.thumbnailUrl.trim() || null
+      }
+      
+      console.log('Sending album creation request:', requestBody)
+      console.log('User object:', user)
+      
       const response = await fetch('/api/albums', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          userId: userId,
-          title: formData.title.trim(),
-          description: formData.description.trim() || null,
-          thumbnailUrl: formData.thumbnailUrl.trim() || null
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
-        throw new Error('アルバムの作成に失敗しました')
+        const errorText = await response.text()
+        console.error('API Error Response:', response.status, errorText)
+        throw new Error(`アルバムの作成に失敗しました (${response.status}): ${errorText}`)
       }
 
       const result = await response.json()
